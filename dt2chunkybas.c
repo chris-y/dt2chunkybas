@@ -22,6 +22,8 @@
  * SOFTWARE.
  */
 
+#include <stdio.h>
+
 #include <proto/datatypes.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>
@@ -29,9 +31,26 @@
 
 #include <datatypes/pictureclass.h>
 
-
 #define CHUNKGFX_WIDTH  64
 #define CHUNKGFX_HEIGHT 48 /* or 44 */
+
+char *blockgfx[] = { 	"  ", /* 0000 */
+						" .", /* 0001 */
+						". ", /* 0010 */
+						"..", /* 0011 */
+						" '", /* 0100 */
+						" :", /* 0101 */
+						".'", /* 0110 */
+						".:", /* 0111 */
+						"' ", /* 1000 */
+						"'.", /* 1001 */
+						": ", /* 1010 */
+						":.", /* 1011 */
+						"''", /* 1100 */
+						"':", /* 1101 */
+						":'", /* 1110 */
+						"::", /* 1111 */
+};
 
 ULONG *bitmap_from_datatype(char *filename)
 {
@@ -64,17 +83,24 @@ ULONG *bitmap_from_datatype(char *filename)
 	return bitmap;
 }
 
-char check_char(ULONG *bitmap, int i, struct ColorMap *cm)
+void check_char(ULONG *bitmap, int i, struct ColorMap *cm)
 {
 	ULONG pix_argb[4];
 	LONG pix_pen[4];
-	int p;
+	ULONG pix_colour[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+	int pix_bright = 0;
+	int pix_notbright = 0;
+	int first_colour = 0;
+	int second_colour = 0;
+	int p, a;
+	int ink, paper;
+	int gfx = 0;
 
 	/* The four pixels are:	*/
-	pix_argb[0] = bitmap[i*2];
-	pix_argb[1] = bitmap[(i*2)+1];
-	pix_argb[2] = bitmap[(i*2)+CHUNKGFX_WIDTH];
-	pix_argb[3] = bitmap[(i*2)+CHUNKGFX_WIDTH+1];
+	pix_argb[0] = bitmap[i];
+	pix_argb[1] = bitmap[i + 1];
+	pix_argb[2] = bitmap[i + CHUNKGFX_WIDTH];
+	pix_argb[3] = bitmap[i + CHUNKGFX_WIDTH + 1];
 
 	for(p = 0; p < 4; p++) {
 		pix_pen[p] = FindColor(cm,
@@ -82,17 +108,79 @@ char check_char(ULONG *bitmap, int i, struct ColorMap *cm)
 						(pix_argb[p] & 0x0000ff00) << 16,
 						(pix_argb[p] & 0x000000ff) << 24,
 						16);
+
+		if(pix_pen[p] < 8) {
+			pix_colour[pix_pen[p]]++;
+			if(pix_pen[p] != 0) pix_notbright++;
+		} else {
+			pix_pen[p] -= 8;
+			pix_colour[pix_pen[p]]++;
+			if(pix_pen[p] != 0) pix_bright++;
+		}
 	}
 
-	printf("[%d][%d][%d][%d]\n", pix_pen[0], pix_pen[1], pix_pen[2], pix_pen[3]);
+	for(a = 0; a < 8; a++) {
+		if(pix_colour[a] > pix_colour[first_colour]) first_colour = a;
+	}
+
+	if(pix_colour[first_colour] == 4) {
+		/* bit of a fudge to get plain blocks in either ink or paper */
+		if (first_colour < 5) second_colour = 7;
+			else second_colour = 0;
+	} else {
+		for(a = 0; a < 8; a++) {
+			if((pix_colour[a] > pix_colour[second_colour]) && (first_colour != a))
+				second_colour = a;
+		}
+
+		if((pix_colour[first_colour] + pix_colour[second_colour]) != 4) {
+			for(a = 0; a < 8; a++) {
+				if(a == first_colour) continue;
+				if(a == second_colour) continue;
+
+				if((pix_colour[a]) > 0) {
+					for(p = 0; p < 4; p++) {
+						if(pix_pen[p] == a) {
+							if(abs(a - second_colour) > abs(a - first_colour)) {
+								pix_pen[p] = first_colour;
+							} else {
+								pix_pen[p] = second_colour;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if(first_colour < second_colour) {
+		paper = second_colour;
+		ink = first_colour;
+	} else {
+		paper = first_colour;
+		ink = second_colour;
+	}
+
+	for(p = 0; p < 4; p++) {
+		if(pix_pen[p] == ink) {
+			gfx |= 1;
+		}
+		if (p < 3) gfx = gfx << 1;
+	}
+
+	printf("\\%s", blockgfx[gfx]);
 }
 
 void bitmap_to_chunky(ULONG *bitmap, struct ColorMap *cm)
 {
-	int i;
+	int x, y;
 
-	for(i = 0; i < ((CHUNKGFX_WIDTH / 2) * (CHUNKGFX_HEIGHT / 2)); i++) {
-		check_char(bitmap, i, cm);
+	for(y = 0; y < CHUNKGFX_HEIGHT; y += 2) {
+		printf("DATA \"");
+		for(x = 0; x < CHUNKGFX_WIDTH; x += 2) {
+			check_char(bitmap, x + (y * CHUNKGFX_WIDTH), cm);
+		}
+		printf("\"\n");
 	}
 }
 
