@@ -25,6 +25,7 @@
 #include <stdio.h>
 
 #include <proto/datatypes.h>
+#include <proto/dos.h>
 #include <proto/exec.h>
 #include <proto/graphics.h>
 #include <proto/intuition.h>
@@ -52,7 +53,7 @@ char *blockgfx[] = { 	"  ", /* 0000 */
 						"::", /* 1111 */
 };
 
-ULONG *bitmap_from_datatype(char *filename)
+ULONG *bitmap_from_datatype(const char *filename)
 {
 	Object *dto;
 	ULONG *bitmap = AllocVecTags(CHUNKGFX_WIDTH * CHUNKGFX_HEIGHT * 4, NULL);
@@ -214,15 +215,27 @@ struct ColorMap *alloc_colormap(void)
 
 int main(void)
 {
+	LONG rarray[] = {0};
+	struct RDArgs *args;
 	ULONG *bitmap;
 	struct ColorMap *cm;
+	STRPTR template = "INPUT/A";
 
-	if(cm = alloc_colormap()) {
-		if(bitmap = bitmap_from_datatype("RAM:test.png")) {
-			bitmap_to_chunky(bitmap, cm);
-			FreeVec(bitmap);
+	enum {
+		A_INPUT
+	};
+
+	if(args = ReadArgs(template, rarray, NULL)) {
+		if(rarray[A_INPUT]) {
+			if(cm = alloc_colormap()) {
+				if(bitmap = bitmap_from_datatype((const char *)rarray[A_INPUT])) {
+					bitmap_to_chunky(bitmap, cm);
+					FreeVec(bitmap);
+				}
+				FreeColorMap(cm);
+			}
 		}
-		FreeColorMap(cm);
+		FreeArgs(args);
 	}
 
 	return 0;
