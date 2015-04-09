@@ -70,12 +70,12 @@ ULONG *bitmap_from_datatype(const char *filename)
 			IDoMethod(dto, PDTM_SCALE, CHUNKGFX_WIDTH, CHUNKGFX_HEIGHT, 0);
 
 			if((DoDTMethod(dto, 0, 0, DTM_PROCLAYOUT, 0, 1)) == 0) {
-				DisposeDTObject(dto); /*** FIX IN NS **/
+				DisposeDTObject(dto);
 				return NULL;
 			}
 
 			IDoMethod(dto, PDTM_READPIXELARRAY, bitmap,
-				PBPAFMT_RGBA, CHUNKGFX_WIDTH * 4, 0, 0,
+				PBPAFMT_ARGB, CHUNKGFX_WIDTH * 4, 0, 0,
 				bmh->bmh_Width, bmh->bmh_Height);
 		}
 		DisposeDTObject(dto);
@@ -84,7 +84,7 @@ ULONG *bitmap_from_datatype(const char *filename)
 	return bitmap;
 }
 
-void check_char(ULONG *bitmap, int i, struct ColorMap *cm)
+void check_char(ULONG *bitmap, int i, struct ColorMap *cm, int mono)
 {
 	ULONG pix_argb[4];
 	LONG pix_pen[4];
@@ -94,7 +94,7 @@ void check_char(ULONG *bitmap, int i, struct ColorMap *cm)
 	int first_colour = 0;
 	int second_colour = 0;
 	int p, a;
-	int ink, paper;
+	int ink, paper, bright = 0;
 	int gfx = 0;
 
 	/* The four pixels are:	*/
@@ -169,17 +169,22 @@ void check_char(ULONG *bitmap, int i, struct ColorMap *cm)
 		if (p < 3) gfx = gfx << 1;
 	}
 
+	if(mono == 0) {
+		if(pix_bright > pix_notbright) bright = 1;
+		printf("\\{0x11}\\{%d}\\{0x10}\\{%d}\\{0x13}\\{%d}", paper, ink, bright);
+	}
+
 	printf("\\%s", blockgfx[gfx]);
 }
 
-void bitmap_to_chunky(ULONG *bitmap, struct ColorMap *cm)
+void bitmap_to_chunky(ULONG *bitmap, struct ColorMap *cm, int mono)
 {
 	int x, y;
 
 	for(y = 0; y < CHUNKGFX_HEIGHT; y += 2) {
 		printf("DATA \"");
 		for(x = 0; x < CHUNKGFX_WIDTH; x += 2) {
-			check_char(bitmap, x + (y * CHUNKGFX_WIDTH), cm);
+			check_char(bitmap, x + (y * CHUNKGFX_WIDTH), cm, mono);
 		}
 		printf("\"\n");
 	}
@@ -193,15 +198,15 @@ struct ColorMap *alloc_colormap(void)
 	/* Set up speccy palette - nicked this straight from PDHFIC code converted from E.
 	 * Not sure why the ordering is strange. */
 
-  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 15 ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 );
+  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 8 ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 );
   SetRGB32CM((struct ColorMap*) cm ,(ULONG) 0 ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 );
-  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 8 ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 ,(ULONG) 0xFFFFFFFF );
-  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 9 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 );
-  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 10 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0x00000000 ,(ULONG) 0xFFFFFFFF );
-  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 11 ,(ULONG) 0x00000000 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0x00000000 );
-  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 12 ,(ULONG) 0x00000000 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0xFFFFFFFF );
-  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 13 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0xFFFFFFFF ,(ULONG) 0x00000000 );
-  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 14 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0xFFFFFFFF ,(ULONG) 0xFFFFFFFF );
+  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 9 ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 ,(ULONG) 0xFFFFFFFF );
+  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 10 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 );
+  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 11 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0x00000000 ,(ULONG) 0xFFFFFFFF );
+  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 12 ,(ULONG) 0x00000000 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0x00000000 );
+  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 13 ,(ULONG) 0x00000000 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0xFFFFFFFF );
+  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 14 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0xFFFFFFFF ,(ULONG) 0x00000000 );
+  SetRGB32CM((struct ColorMap*) cm ,(ULONG) 15 ,(ULONG) 0xFFFFFFFF ,(ULONG) 0xFFFFFFFF ,(ULONG) 0xFFFFFFFF );
   SetRGB32CM((struct ColorMap*) cm ,(ULONG) 1 ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 ,(ULONG) 0xDDDDDDDD );
   SetRGB32CM((struct ColorMap*) cm ,(ULONG) 2 ,(ULONG) 0xDDDDDDDD ,(ULONG) 0x00000000 ,(ULONG) 0x00000000 );
   SetRGB32CM((struct ColorMap*) cm ,(ULONG) 3 ,(ULONG) 0xDDDDDDDD ,(ULONG) 0x00000000 ,(ULONG) 0xDDDDDDDD );
@@ -215,21 +220,22 @@ struct ColorMap *alloc_colormap(void)
 
 int main(void)
 {
-	LONG rarray[] = {0};
+	LONG rarray[] = {0, 0};
 	struct RDArgs *args;
 	ULONG *bitmap;
 	struct ColorMap *cm;
-	STRPTR template = "INPUT/A";
+	STRPTR template = "INPUT/A,MONO/S";
 
 	enum {
-		A_INPUT
+		A_INPUT,
+		A_MONO
 	};
 
 	if(args = ReadArgs(template, rarray, NULL)) {
 		if(rarray[A_INPUT]) {
 			if(cm = alloc_colormap()) {
 				if(bitmap = bitmap_from_datatype((const char *)rarray[A_INPUT])) {
-					bitmap_to_chunky(bitmap, cm);
+					bitmap_to_chunky(bitmap, cm, rarray[A_MONO]);
 					FreeVec(bitmap);
 				}
 				FreeColorMap(cm);
